@@ -30,47 +30,29 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
     $query = $this->select('webform', 'wf');
     $query->innerJoin('node', 'n', 'wf.nid=n.nid');
     $query->innerJoin('node_revision', 'nr', 'n.vid=nr.vid');
+    $webform_fields = $this->getWebformTableFields();
 
-    $query->fields('wf', array(
-      'nid',
-      'confirmation',
-      'confirmation_format',
-      'redirect_url',
-      'status',
-      'block',
-      'allow_draft',
-      'auto_save',
-      'submit_notice',
-      'submit_text',
-      'submit_limit',
-      'submit_interval',
-      'total_submit_limit',
-      'total_submit_interval',
-      'progressbar_bar',
-      'progressbar_page_number',
-      'progressbar_percent',
-      'progressbar_pagebreak_labels',
-      'progressbar_include_confirmation',
-      'progressbar_label_first',
-      'progressbar_label_confirmation',
-      'preview',
-      'preview_next_button_label',
-      'preview_prev_button_label',
-      'preview_title',
-      'preview_message',
-      'preview_message_format',
-      'preview_excluded_components',
-      'next_serial',
-      'confidential',
-    ))
-      ->fields('nr', array(
-        'title'
-      )
-    );
+    $query->fields('wf', $webform_fields)
+      ->fields('nr', ['title']);
 
     $query->addField('n', 'uid', 'node_uid');
 
     return $query;
+  }
+
+  /**
+   * Get D7 webform columns names.
+   *
+   * @return array
+   *   The webform columns names list.
+   */
+  private function getWebformTableFields() {
+    // Get the webform table columns to ensure all the requested fields
+    // correspond to the webform version that is used for migrations, in some
+    // old version some fields could not exist so we need to ignore those.
+    // @var \Drupal\Core\Database\Statement $query
+    $query = $this->getDatabase()->query("SHOW COLUMNS FROM webform");
+    return array_keys($query->fetchAllAssoc('Field'));
   }
 
   /**
@@ -85,7 +67,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
    * {@inheritdoc}
    */
   public function fields() {
-    $fields = array(
+    $fields = [
       'nid' => $this->t('Node ID'),
       'title' => $this->t('Webform title'),
       'node_uid' => $this->t('Webform author'),
@@ -122,7 +104,17 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
       'preview_excluded_components' => $this->t('Comma-separated list of component IDs that should not be included in this form’s confirmation page.'),
       'next_serial' => $this->t('The serial number to give to the next submission to this webform.'),
       'confidential' => $this->t('Boolean value for whether to anonymize submissions.'),
-    );
+    ];
+
+    // Get the current webform column names and ignore any nonexistent field.
+    $current_fields = $this->getWebformTableFields();
+    // Remove fields that do not exists on current webform table.
+    foreach ($fields as $field_name => $description) {
+      if (!isset($current_fields[$field_name])) {
+        unset($fields[$field_name]);
+      }
+    }
+
     return $fields;
   }
 
@@ -255,7 +247,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
             break;
           }
         } while($child = next($children[$parent]));
-        
+
         if (!$has_children) {
           // We processed all components in this hierarchy-level
           reset($children[$parent]);
@@ -276,7 +268,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
       if($element['type'] == 'fieldset' && strpos($element['form_key'], 'fieldset') === FALSE){
         $element['form_key'] = 'fieldset_' . $element['form_key'];
       }
-      
+
       // If this is a multi-page form then indent all elements one level
       // to allow for page elements.
       if ($multiPage && $element['type'] != 'pagebreak') {
@@ -479,7 +471,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
       if (!empty($element['required'])) {
         $markup .= "$indent  '#required': true\n";
       }
-      
+
       // build contionals
       if($states = $this->buildConditionals($element, $elements)){
         foreach($states as $key => $values){
@@ -496,14 +488,14 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
 
       $output .= $markup;
     }
-    
+
     if ($multiPage) {
       // Replace the final page title.
       $output = str_replace('{' . $current_page . '_title}', $current_page_title, $output);
     }
     return array('elements' => $output, 'xref' => $xref);
   }
-  
+
   /**
    * Build conditionals and translate them to states api in D8.
    */
@@ -512,31 +504,50 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
     $cid = $element['cid'];
     $extra = unserialize($element['extra']);
     // checkboxes : ':input[name="add_more_locations_24[yes]"]':
-    $query = $this->select('webform_conditional', 'wc');
-    $query->innerJoin('webform_conditional_actions', 'wca', 'wca.nid=wc.nid AND wca.rgid=wc.rgid');
-    $query->innerJoin('webform_conditional_rules', 'wcr', 'wcr.nid=wca.nid AND wcr.rgid=wca.rgid');
-    $query->fields('wc', array(
-      'nid',
-      'rgid',
-      'andor',
-      'weight',
-    ))
-    ->fields('wca', array(
-      'aid',
-      'target_type',
-      'target',
-      'invert',
-      'action',
-      'argument'
-    ))
-    ->fields('wcr', array(
-      'rid',
-      'source_type',
-      'source',
-      'operator',
-      'value'
-    ));
-    $conditions = $query->condition('wc.nid', $nid)->condition('wca.target', $cid)->execute();
+
+    if ($this->checkTableExists('webform_conditional')) {
+      $query = $this->select('webform_conditional', 'wc');
+      $query->fields('wc', [
+        'nid',
+        'rgid',
+        'andor',
+        'weight',
+      ]);
+      $query->condition('wc.nid', $nid);
+    }
+
+    if ($this->checkTableExists('webform_conditional_actions')) {
+      $query->innerJoin('webform_conditional_actions', 'wca', 'wca.nid=wc.nid AND wca.rgid=wc.rgid');
+      $query->fields('wca', [
+        'aid',
+        'target_type',
+        'target',
+        'invert',
+        'action',
+        'argument',
+      ]);
+      $query->condition('wca.target', $cid);
+    }
+
+    if ($this->checkTableExists('webform_conditional_rules')) {
+      // Add join only if conditional actions table exists.
+      if ($this->checkTableExists('webform_conditional_actions')) {
+        $query->innerJoin('webform_conditional_rules', 'wcr', 'wcr.nid=wca.nid AND wcr.rgid=wca.rgid');
+      }
+      else {
+        $query->innerJoin('webform_conditional_rules', 'wcr', 'wcr.nid=wc.nid AND wcr.rgid=wc.rgid');
+      }
+
+      $query->fields('wcr', [
+        'rid',
+        'source_type',
+        'source',
+        'operator',
+        'value',
+      ]);
+    }
+
+    $conditions = $query->execute();
     $states = [];
     if(!empty($conditions)){
       foreach($conditions as $condition){
@@ -595,7 +606,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
           }
           break;
         }
-        
+
         if (!$depedent_extra['aslist'] && $depedent_extra['multiple'] && count($depedent_extra['items']) > 1) {
           $depedent['form_key'] = $depedent['form_key'] . "[$operator_value]";
         }
@@ -612,6 +623,22 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
     else {
       return FALSE;
     }
+  }
+
+  /**
+   * Check if table exists on migration DB.
+   *
+   * @param string $table_name
+   *   The table name to check existance for.
+   *
+   * @return bool
+   *   TRUE if table exists, FALSE otherwise.
+   */
+  private function checkTableExists($table_name) {
+    $table_exists = $this->getDatabase()
+      ->schema()
+      ->tableExists($table_name);
+    return $table_exists;
   }
 
   /**
