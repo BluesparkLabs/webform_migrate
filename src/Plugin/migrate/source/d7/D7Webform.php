@@ -2,16 +2,17 @@
 
 namespace Drupal\webform_migrate\Plugin\migrate\source\d7;
 
-use Drupal\migrate\Event\ImportAwareInterface;
-use Drupal\migrate\Event\RollbackAwareInterface;
-use Drupal\migrate\Event\MigrateImportEvent;
-use Drupal\migrate\Event\MigrateRollbackEvent;
-use Drupal\migrate\Row;
-use Drupal\migrate_drupal\Plugin\migrate\source\DrupalSqlBase;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
-use Drupal\webform\Entity\Webform;
+use Drupal\migrate\Event\ImportAwareInterface;
+use Drupal\migrate\Event\MigrateImportEvent;
+use Drupal\migrate\Event\MigrateRollbackEvent;
+use Drupal\migrate\Event\RollbackAwareInterface;
+use Drupal\migrate\MigrateSkipRowException;
+use Drupal\migrate\Row;
+use Drupal\migrate_drupal\Plugin\migrate\source\DrupalSqlBase;
 use Drupal\node\Entity\Node;
+use Drupal\webform\Entity\Webform;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -123,6 +124,18 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
    */
   public function prepareRow(Row $row) {
     $elements = '';
+
+    // Webform prior 7.x-4.8 releases are complicated to support due important
+    // changes on source tables schema, webform_conditional_actions table do
+    // not exists so migration conditionals before that release don't migrate.
+    // In those versions we skip row migration and log a message to suggest an
+    // D7 webform upgrade. For details see:
+    // https://www.drupal.org/project/webform/releases/7.x-4.8
+    if (!$this->checkTableExists('webform_conditional_actions')) {
+      $message = "The minimum webform source version is 7.x-4.8,
+        please upgrade your D7 webform module to recent release before migration.";
+      throw new MigrateSkipRowException($message);
+    }
 
     $nid = $row->getSourceProperty('nid');
     $webform = $this->buildFormElements($nid);
@@ -476,12 +489,13 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
 
       // Build contionals.
       if ($states = $this->buildConditionals($element, $elements)) {
-        $conditional_n = 1;
         foreach ($states as $key => $values) {
           // On empty conditional key, build one to avoid YAML syntax violation
           // that happens when leave it empty.
           if (empty($key)) {
-            $key = 'conditional' . $conditional_n;
+            $message = "Missing conditional key on webform {$element['nid']},
+              {$element['form_key']} element.";
+            throw new MigrateSkipRowException($message);
           }
 
           $markup .= "$indent  '#states':\n";
@@ -492,9 +506,6 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
               $markup .= "$indent        " . Yaml::dump($item, 2, 2);
             }
           }
-
-          // Keep counter of conditionals to set empty keys.
-          $conditional_n++;
         }
       }
 
@@ -517,47 +528,34 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
     $extra = unserialize($element['extra']);
 
     // Checkboxes : ':input[name="add_more_locations_24[yes]"]':.
-    if ($this->checkTableExists('webform_conditional')) {
-      $query = $this->select('webform_conditional', 'wc');
-      $query->fields('wc', [
-        'nid',
-        'rgid',
-        'andor',
-        'weight',
-      ]);
-      $query->condition('wc.nid', $nid);
-    }
+    $query = $this->select('webform_conditional', 'wc');
+    $query->fields('wc', [
+      'nid',
+      'rgid',
+      'andor',
+      'weight',
+    ]);
+    $query->condition('wc.nid', $nid);
 
-    if ($this->checkTableExists('webform_conditional_actions')) {
-      $query->innerJoin('webform_conditional_actions', 'wca', 'wca.nid=wc.nid AND wca.rgid=wc.rgid');
-      $query->fields('wca', [
-        'aid',
-        'target_type',
-        'target',
-        'invert',
-        'action',
-        'argument',
-      ]);
-      $query->condition('wca.target', $cid);
-    }
+    $query->innerJoin('webform_conditional_actions', 'wca', 'wca.nid=wc.nid AND wca.rgid=wc.rgid');
+    $query->fields('wca', [
+      'aid',
+      'target_type',
+      'target',
+      'invert',
+      'action',
+      'argument',
+    ]);
+    $query->condition('wca.target', $cid);
+    $query->innerJoin('webform_conditional_rules', 'wcr', 'wcr.nid=wca.nid AND wcr.rgid=wca.rgid');
 
-    if ($this->checkTableExists('webform_conditional_rules')) {
-      // Add join only if conditional actions table exists.
-      if ($this->checkTableExists('webform_conditional_actions')) {
-        $query->innerJoin('webform_conditional_rules', 'wcr', 'wcr.nid=wca.nid AND wcr.rgid=wca.rgid');
-      }
-      else {
-        $query->innerJoin('webform_conditional_rules', 'wcr', 'wcr.nid=wc.nid AND wcr.rgid=wc.rgid');
-      }
-
-      $query->fields('wcr', [
-        'rid',
-        'source_type',
-        'source',
-        'operator',
-        'value',
-      ]);
-    }
+    $query->fields('wcr', [
+      'rid',
+      'source_type',
+      'source',
+      'operator',
+      'value',
+    ]);
 
     $conditions = $query->execute();
     $states = [];
