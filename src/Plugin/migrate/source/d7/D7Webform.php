@@ -167,7 +167,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
   }
 
   /**
-   * Build form elements from webform component table
+   * Build form elements from webform component table.
    */
   private function buildFormElements($nid) {
     // TODO : Use yaml_emit http://php.net/manual/en/function.yaml-emit.php
@@ -224,13 +224,15 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
           if (empty($child)) {
             break;
           }
+
           $element = &$elements[$child];
           $element['depth'] = $depth;
-          // we might get element with same form_key
-          // d8 doesn't like that so rename it
+          // We might get element with same form_key d8 doesn't like that so
+          // rename it.
           if ($depth > 0) {
             $element['form_key'] = $element['form_key'] . '_' . $element['pid'];
           }
+
           unset($element['pid']);
           $elements_tree[] = $element;
           if (!empty($children[$element['cid']])) {
@@ -239,17 +241,18 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
             $process_parents[] = $parent;
             // Use the current component as parent for the next iteration.
             $process_parents[] = $element['cid'];
-            // Reset pointers for child lists because we step in there more often
-            // with multi parents.
+            // Reset pointers for child lists because we step in there more
+            // often with multi parents.
             reset($children[$element['cid']]);
             // Move pointer so that we get the correct term the next time.
             next($children[$parent]);
             break;
+
           }
-        } while($child = next($children[$parent]));
+        } while ($child = next($children[$parent]));
 
         if (!$has_children) {
-          // We processed all components in this hierarchy-level
+          // We processed all components in this hierarchy-level.
           reset($children[$parent]);
         }
       }
@@ -264,7 +267,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
     }
 
     foreach ($elements_tree as $element) {
-      // rename fieldsets to it's own unique key
+      // Rename fieldsets to it's own unique key.
       if ($element['type'] == 'fieldset' && strpos($element['form_key'], 'fieldset') === FALSE) {
         $element['form_key'] = 'fieldset_' . $element['form_key'];
       }
@@ -415,9 +418,10 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
 
         case 'date':
           $markup .= "$indent  '#type': date\n";
-          /*if (!empty($element['value'])) {
-            $element['value'] = date('Y-m-d', strtotime($element['value']));
-          }*/
+          /* if (!empty($element['value'])) {
+           * $element['value'] = date('Y-m-d', strtotime($element['value']));
+           * }
+           */
           break;
 
         case 'time':
@@ -430,9 +434,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
               $markup .= "$indent  '#time_format': 'H:i'\n";
             }
           }
-          /*if (!empty($element['value'])) {
-            $element['value'] = date('c', strtotime($element['value']));
-          }*/
+
           break;
 
         case 'hidden':
@@ -472,10 +474,10 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
         $markup .= "$indent  '#required': true\n";
       }
 
-      // build contionals
+      // Build contionals.
       if ($states = $this->buildConditionals($element, $elements)) {
         $conditional_n = 1;
-        foreach($states as $key => $values) {
+        foreach ($states as $key => $values) {
           // On empty conditional key, build one to avoid YAML syntax violation
           // that happens when leave it empty.
           if (empty($key)) {
@@ -484,8 +486,8 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
 
           $markup .= "$indent  '#states':\n";
           $markup .= "$indent    $key:\n";
-          foreach($values as $value) {
-            foreach($value as $name => $item) {
+          foreach ($values as $value) {
+            foreach ($value as $name => $item) {
               $markup .= "$indent      " . Yaml::dump($name, 2, 2) . ":\n";
               $markup .= "$indent        " . Yaml::dump($item, 2, 2);
             }
@@ -513,8 +515,8 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
     $nid = $element['nid'];
     $cid = $element['cid'];
     $extra = unserialize($element['extra']);
-    // checkboxes : ':input[name="add_more_locations_24[yes]"]':
 
+    // Checkboxes : ':input[name="add_more_locations_24[yes]"]':.
     if ($this->checkTableExists('webform_conditional')) {
       $query = $this->select('webform_conditional', 'wc');
       $query->fields('wc', [
@@ -560,61 +562,70 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
     $conditions = $query->execute();
     $states = [];
     if (!empty($conditions)) {
-      foreach($conditions as $condition) {
-        // element states
-        switch($condition['action']) {
+      foreach ($conditions as $condition) {
+        // Element states.
+        switch ($condition['action']) {
           case 'show':
-          $element_state = $condition['invert'] ? 'invisible' : 'visible';
-          break;
+            $element_state = $condition['invert'] ? 'invisible' : 'visible';
+            break;
+
           case 'require':
-          $element_state = $condition['invert'] ? 'optional' : 'required';
-          break;
+            $element_state = $condition['invert'] ? 'optional' : 'required';
+            break;
+
           case 'set':
-          // Nothing found in D8 :(
-          break;
+            // Nothing found in D8.
+            break;
+
         }
-        // condition states
+
+        // Condition states.
         $operator_value = $condition['value'];
         $depedent = $elements[$condition['source']];
         $depedent_extra = unserialize($depedent['extra']);
-        switch($condition['operator']) {
+        switch ($condition['operator']) {
           case 'equal':
-          $element_condition = ['value' => $operator_value];
-          if ($depedent['type'] == 'select' && !$depedent_extra['aslist']) {
-            $element_condition = ['checked' => TRUE];
-          }
-          break;
+            $element_condition = ['value' => $operator_value];
+            if ($depedent['type'] == 'select' && !$depedent_extra['aslist']) {
+              $element_condition = ['checked' => TRUE];
+            }
+            break;
+
           case 'not_equal':
-          // There is no handler for this in D8 so we do the reverse
-          $element_state = $condition['invert'] ? 'visible' : 'invisible';
-          $element_condition = ['value' => $operator_value];
-          // specially handle the checkboxes, radios
-          if ($depedent['type'] == 'select' && !$depedent_extra['aslist']) {
-            $element_condition = ['checked' => TRUE];
-          }
-          break;
+            // There is no handler for this in D8 so we do the reverse.
+            $element_state = $condition['invert'] ? 'visible' : 'invisible';
+            $element_condition = ['value' => $operator_value];
+            // Specially handle the checkboxes, radios.
+            if ($depedent['type'] == 'select' && !$depedent_extra['aslist']) {
+              $element_condition = ['checked' => TRUE];
+            }
+            break;
+
           case 'less_than':
           case 'less_than_equal':
           case 'greater_than':
           case 'greater_than_equal':
-          // Nothing in D8 to handle these
-          break;
+            // Nothing in D8 to handle these.
+            break;
+
           case 'empty':
-          if ($operator_value == 'checked') {
-            $element_condition = ['unchecked' => TRUE];
-          }
-          else {
-            $element_condition = ['empty' => TRUE];
-          }
-          break;
+            if ($operator_value == 'checked') {
+              $element_condition = ['unchecked' => TRUE];
+            }
+            else {
+              $element_condition = ['empty' => TRUE];
+            }
+            break;
+
           case 'not_empty':
-          if ($operator_value == 'checked') {
-            $element_condition = ['checked' => TRUE];
-          }
-          else {
-            $element_condition = ['filled' => FALSE];
-          }
-          break;
+            if ($operator_value == 'checked') {
+              $element_condition = ['checked' => TRUE];
+            }
+            else {
+              $element_condition = ['filled' => FALSE];
+            }
+            break;
+
         }
 
         if (!$depedent_extra['aslist'] && $depedent_extra['multiple'] && count($depedent_extra['items']) > 1) {
