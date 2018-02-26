@@ -474,7 +474,14 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
 
       // build contionals
       if ($states = $this->buildConditionals($element, $elements)) {
+        $conditional_n = 1;
         foreach($states as $key => $values) {
+          // On empty conditional key, build one to avoid YAML syntax violation
+          // that happens when leave it empty.
+          if (empty($key)) {
+            $key = 'conditional' . $conditional_n;
+          }
+
           $markup .= "$indent  '#states':\n";
           $markup .= "$indent    $key:\n";
           foreach($values as $value) {
@@ -483,6 +490,9 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
               $markup .= "$indent        " . Yaml::dump($item, 2, 2);
             }
           }
+
+          // Keep counter of conditionals to set empty keys.
+          $conditional_n++;
         }
       }
 
