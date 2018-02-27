@@ -480,7 +480,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
         $markup .= "$indent  '#title_display': " . $title_display . "\n";
       }
       if ($element['type'] != 'pagebreak') {
-        $markup .= "$indent  '#title': " . $element['name'] . "\n";
+        $markup .= "$indent  '#title': \"" . $element['name'] . "\"\n";
         $markup .= "$indent  '#description': \"" . $description . "\"\n";
       }
       if (!empty($element['required'])) {
