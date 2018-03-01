@@ -578,25 +578,18 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
         }
 
         // Condition states.
-        $operator_value = $condition['value'];
+        $operator_value = trim($condition['value']);
         $depedent = $elements[$condition['source']];
         $depedent_extra = unserialize($depedent['extra']);
         switch ($condition['operator']) {
           case 'equal':
             $element_condition = ['value' => $operator_value];
-            if ($depedent['type'] == 'select' && !$depedent_extra['aslist']) {
-              $element_condition = ['checked' => TRUE];
-            }
             break;
 
           case 'not_equal':
             // There is no handler for this in D8 so we do the reverse.
             $element_state = $condition['invert'] ? 'visible' : 'invisible';
             $element_condition = ['value' => $operator_value];
-            // Specially handle the checkboxes, radios.
-            if ($depedent['type'] == 'select' && !$depedent_extra['aslist']) {
-              $element_condition = ['checked' => TRUE];
-            }
             break;
 
           case 'less_than':
@@ -626,12 +619,6 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
 
         }
 
-        if (!$depedent_extra['aslist'] && $depedent_extra['multiple'] && count($depedent_extra['items']) > 1) {
-          $depedent['form_key'] = $depedent['form_key'] . "[$operator_value]";
-        }
-        elseif (!$depedent_extra['aslist'] && !$depedent_extra['multiple']) {
-          $depedent['form_key'] = $depedent['form_key'] . "[$operator_value]";
-        }
         $states[$element_state][] = [':input[name="' . $depedent['form_key'] . '"]' => $element_condition];
       }
       if (empty($states)) {
