@@ -275,7 +275,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
     if ($multiPage) {
       $pageCnt = 1;
       $current_page = 'wizard_page_1';
-      $output .= "first_page:\n  '#type': wizard_page\n  '#title': {" . $current_page . "_title}\n  '#open': true\n";
+      $output .= "first_page:\n  '#type': webform_wizard_page\n  '#title': {" . $current_page . "_title}\n  '#open': true\n";
       $current_page_title = t('Page') . ' ' . $pageCnt++;
     }
 
@@ -457,7 +457,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
         case 'pagebreak':
           $output = str_replace('{' . $current_page . '_title}', $current_page_title, $output);
           $current_page = $element['form_key'];
-          $markup .= "$indent  '#type': wizard_page\n  '#open': true\n  '#title': {" . $current_page . "_title}\n";
+          $markup .= "$indent  '#type': webform_wizard_page\n  '#open': true\n  '#title': {" . $current_page . "_title}\n";
           $current_page_title = t('Page') . ' ' . $pageCnt++;
           break;
       }
