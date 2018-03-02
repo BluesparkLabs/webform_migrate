@@ -583,6 +583,12 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
         $operator_value = trim($condition['value']);
         $depedent = $elements[$condition['source']];
         $depedent_extra = unserialize($depedent['extra']);
+        // Convert string items to array.
+        $items = [];
+        if (isset($depedent_extra['items'])) {
+          $items = explode("\n", trim($depedent_extra['items']));
+        }
+
         switch ($condition['operator']) {
           case 'equal':
             $element_condition = ['value' => $operator_value];
@@ -619,6 +625,15 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
             }
             break;
 
+        }
+
+        // Specially handle the checkboxes, radios on multi-selection options
+        // elements that has the square bracket value as part of element name.
+        if (!$depedent_extra['aslist'] && $depedent_extra['multiple'] && count($items) > 1) {
+          $depedent['form_key'] = $depedent['form_key'] . "[$operator_value]";
+          if ($depedent['type'] == 'select') {
+            $element_condition = ['checked' => TRUE];
+          }
         }
 
         $states[$element_state][] = [':input[name="' . $depedent['form_key'] . '"]' => $element_condition];
