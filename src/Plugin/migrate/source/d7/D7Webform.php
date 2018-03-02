@@ -297,6 +297,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
       // Create an option list if there are items for this element.
       $options = '';
       $valid_options = [];
+      $items = [];
       if (!empty($extra['items'])) {
         $items = explode("\n", trim($extra['items']));
         $ingroup = '';
@@ -351,12 +352,13 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
           if (!empty($extra['aslist'])) {
             $select_type = 'select';
           }
-          elseif (!empty($extra['multiple']) && count($extra['items']) > 1) {
+          // Count from parsed options array.
+          elseif (!empty($extra['multiple']) && count($items) > 1) {
             $select_type = 'checkboxes';
           }
-          elseif (!empty($extra['multiple']) && count($extra['items']) == 1) {
+          elseif (!empty($extra['multiple']) && count($items) == 1) {
             $select_type = 'checkbox';
-            list($key, $desc) = explode('|', $extra['items']);
+            list($key, $desc) = explode('|', $items[0]);
             $markup .= "$indent  '#description': \"" . $this->cleanString($desc) . "\"\n";
           }
           else {
