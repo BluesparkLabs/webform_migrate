@@ -825,9 +825,13 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
    * {@inheritdoc}
    */
   public function postImport(MigrateImportEvent $event) {
-    // Add the Webform field to the webform content type
-    // if it doesn't already exist.
-    $field_storage = FieldStorageConfig::loadByName('node', 'webform');
+    // Add the Webform field to the webform content type if it doesn't already
+    // exist, skip when not defined because webform_node modules is not
+    // installed and webform nodes are not processed.
+    if (!$field_storage = FieldStorageConfig::loadByName('node', 'webform')) {
+      return;
+    }
+
     $field = FieldConfig::loadByName('node', 'webform', 'webform');
     if (empty($field)) {
       $field = entity_create('field_config', [
