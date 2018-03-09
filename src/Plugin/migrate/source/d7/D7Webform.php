@@ -170,7 +170,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
 
     // Generate a unique ID for the webform.
     $uuid_service = \Drupal::service('uuid');
-    $row->setSourceProperty('webform_uuid', $uuid_service->generate());
+    $row->setSourceProperty('webform_uuid', substr($uuid_service->generate(), 0, 32));
 
     return parent::prepareRow($row);
   }
