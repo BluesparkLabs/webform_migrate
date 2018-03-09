@@ -296,7 +296,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
       }
       $indent = str_repeat(' ', $element['depth'] * 2);
       $extra = unserialize($element['extra']);
-      $description = $this->cleanString($extra['description']);
+      $description = trim($this->cleanString($extra['description']));
 
       // Create an option list if there are items for this element.
       $options = '';
@@ -362,8 +362,12 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
           }
           elseif (!empty($extra['multiple']) && count($items) == 1) {
             $select_type = 'checkbox';
-            list($key, $desc) = explode('|', $items[0]);
-            $markup .= "$indent  '#description': \"" . $this->cleanString($desc) . "\"\n";
+            list($key, $description) = explode('|', $items[0]);
+            $description = trim($this->cleanString($description));
+            // Set description attribute when is filled.
+            if (!empty($description)) {
+              $markup .= "$indent  '#description': \"" . $description . "\"\n";
+            }
           }
           else {
             $select_type = 'radios';
@@ -487,7 +491,10 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
       }
       if ($element['type'] != 'pagebreak') {
         $markup .= "$indent  '#title': \"" . $element['name'] . "\"\n";
-        $markup .= "$indent  '#description': \"" . $description . "\"\n";
+        // Set description attribute when is filled.
+        if (empty($description)) {
+          $markup .= "$indent  '#description': \"" . $description . "\"\n";
+        }
       }
       if (!empty($element['required'])) {
         $markup .= "$indent  '#required': true\n";
