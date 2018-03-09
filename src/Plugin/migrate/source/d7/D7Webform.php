@@ -167,6 +167,11 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
     $row->setSourceProperty('access', $access);
     $row->setSourceProperty('webform_id', 'webform_' . $nid);
     $row->setSourceProperty('status', $row->getSourceProperty('status') ? 'open' : 'closed');
+
+    // Generate a unique ID for the webform.
+    $uuid_service = \Drupal::service('uuid');
+    $row->setSourceProperty('webform_uuid', substr($uuid_service->generate(), 0, 32));
+
     return parent::prepareRow($row);
   }
 
@@ -292,7 +297,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
       }
       $indent = str_repeat(' ', $element['depth'] * 2);
       $extra = unserialize($element['extra']);
-      $description = $this->cleanString($extra['description']);
+      $description = trim($this->cleanString($extra['description']));
 
       // Create an option list if there are items for this element.
       $options = '';
@@ -358,8 +363,12 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
           }
           elseif (!empty($extra['multiple']) && count($items) == 1) {
             $select_type = 'checkbox';
-            list($key, $desc) = explode('|', $items[0]);
-            $markup .= "$indent  '#description': \"" . $this->cleanString($desc) . "\"\n";
+            list($key, $description) = explode('|', $items[0]);
+            $description = trim($this->cleanString($description));
+            // Set description attribute when is filled.
+            if (!empty($description)) {
+              $markup .= "$indent  '#description': \"" . $description . "\"\n";
+            }
           }
           else {
             $select_type = 'radios';
@@ -405,7 +414,10 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
           break;
 
         case 'markup':
-          $markup .= "$indent  '#type': processed_text\n$indent  '#format': full_html\n$indent  '#text': \"" . $this->cleanString($element['value']) . "\"\n";
+          $markup .= "$indent  '#type': processed_text\n";
+          $markup .= "$indent  '#format': full_html\n";
+          $markup .= "$indent  '#title_display': invisible\n";
+          $markup .= "$indent  '#text': \"" . $this->cleanString($element['value']) . "\"\n";
           $element['value'] = '';
           break;
 
@@ -483,7 +495,10 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
       }
       if ($element['type'] != 'pagebreak') {
         $markup .= "$indent  '#title': \"" . $element['name'] . "\"\n";
-        $markup .= "$indent  '#description': \"" . $description . "\"\n";
+        // Set description attribute when is filled.
+        if (!empty($description)) {
+          $markup .= "$indent  '#description': \"" . $description . "\"\n";
+        }
       }
       if (!empty($element['required'])) {
         $markup .= "$indent  '#required': true\n";
@@ -813,9 +828,13 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
    * {@inheritdoc}
    */
   public function postImport(MigrateImportEvent $event) {
-    // Add the Webform field to the webform content type
-    // if it doesn't already exist.
-    $field_storage = FieldStorageConfig::loadByName('node', 'webform');
+    // Add the Webform field to the webform content type if it doesn't already
+    // exist, skip when not defined because webform_node modules is not
+    // installed and webform nodes are not processed.
+    if (!$field_storage = FieldStorageConfig::loadByName('node', 'webform')) {
+      return;
+    }
+
     $field = FieldConfig::loadByName('node', 'webform', 'webform');
     if (empty($field)) {
       $field = entity_create('field_config', [
