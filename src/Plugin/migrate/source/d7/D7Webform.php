@@ -165,11 +165,12 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
     $row->setSourceProperty('elements', $elements);
     $row->setSourceProperty('handlers', $handlers);
     $row->setSourceProperty('access', $access);
+    $row->setSourceProperty('webform_id', 'webform_' . $nid);
     $row->setSourceProperty('status', $row->getSourceProperty('status') ? 'open' : 'closed');
 
     // Generate a unique ID for the webform.
     $uuid_service = \Drupal::service('uuid');
-    $row->setSourceProperty('webform_id', 'webform_' . $uuid_service->generate());
+    $row->setSourceProperty('webform_uuid', 'webform_' . $uuid_service->generate());
 
     return parent::prepareRow($row);
   }
