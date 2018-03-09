@@ -414,7 +414,10 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
           break;
 
         case 'markup':
-          $markup .= "$indent  '#type': processed_text\n$indent  '#format': full_html\n$indent  '#text': \"" . $this->cleanString($element['value']) . "\"\n";
+          $markup .= "$indent  '#type': processed_text\n";
+          $markup .= "$indent  '#format': full_html\n";
+          $markup .= "$indent  '#title_display': invisible\n";
+          $markup .= "$indent  '#text': \"" . $this->cleanString($element['value']) . "\"\n";
           $element['value'] = '';
           break;
 
