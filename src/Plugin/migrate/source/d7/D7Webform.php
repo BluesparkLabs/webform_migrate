@@ -493,7 +493,7 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
       if ($element['type'] != 'pagebreak') {
         $markup .= "$indent  '#title': \"" . $element['name'] . "\"\n";
         // Set description attribute when is filled.
-        if (empty($description)) {
+        if (!empty($description)) {
           $markup .= "$indent  '#description': \"" . $description . "\"\n";
         }
       }
