@@ -2,6 +2,7 @@
 
 namespace Drupal\webform_migrate\Plugin\migrate\source\d7;
 
+use Drupal\Core\Language\LanguageInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\migrate\Event\ImportAwareInterface;
@@ -165,12 +166,20 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
     $row->setSourceProperty('elements', $elements);
     $row->setSourceProperty('handlers', $handlers);
     $row->setSourceProperty('access', $access);
-    $row->setSourceProperty('webform_id', 'webform_' . $nid);
     $row->setSourceProperty('status', $row->getSourceProperty('status') ? 'open' : 'closed');
 
+    // Generate a machine name based on title.
+    $transliteration = \Drupal::service('transliteration');
+    $title = $row->getSourceProperty('title');
+    $machine_name = $transliteration->transliterate($title, LanguageInterface::LANGCODE_DEFAULT, '_');
+    $machine_name = strtolower($machine_name);
+    $machine_name = preg_replace('/[^a-z0-9_]+/', '_', $machine_name);
+    $machine_name = preg_replace('/_+/', '_', $machine_name);
+    $row->setSourceProperty('webform_id', $machine_name);
+
     // Generate a unique ID for the webform.
-    $uuid_service = \Drupal::service('uuid');
-    $row->setSourceProperty('webform_uuid', substr($uuid_service->generate(), 0, 32));
+    $uuid = \Drupal::service('uuid');
+    $row->setSourceProperty('webform_uuid', substr($uuid->generate(), 0, 32));
 
     return parent::prepareRow($row);
   }
