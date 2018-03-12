@@ -2,6 +2,7 @@
 
 namespace Drupal\webform_migrate\Plugin\migrate\source\d7;
 
+use Drupal\Component\Utility\Unicode;
 use Drupal\Core\Language\LanguageInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
@@ -175,6 +176,8 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
     $machine_name = strtolower($machine_name);
     $machine_name = preg_replace('/[^a-z0-9_]+/', '_', $machine_name);
     $machine_name = preg_replace('/_+/', '_', $machine_name);
+    // Cut to max allowed length of machine names.
+    $machine_name = Unicode::substr($machine_name, 0, 32);
     $row->setSourceProperty('webform_id', $machine_name);
 
     // Generate a unique ID for the webform.
