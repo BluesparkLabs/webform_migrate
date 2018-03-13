@@ -184,6 +184,17 @@ class D7Webform extends DrupalSqlBase implements ImportAwareInterface, RollbackA
     $uuid = \Drupal::service('uuid');
     $row->setSourceProperty('webform_uuid', substr($uuid->generate(), 0, 32));
 
+    // Use the webform node alias as D8 webform path.
+    $query = $this->select('url_alias', 'ua');
+    $query->fields('ua', ['alias']);
+    $query->condition('ua.source', "node/{$nid}");
+    $alias = $query->execute()->fetchField();
+
+    // Set the alias property.
+    if (!empty($alias)) {
+      $row->setSourceProperty('page_submit_path', '/' . $alias);
+    }
+
     return parent::prepareRow($row);
   }
 
